@@ -1,0 +1,120 @@
+services:
+  # Main media server
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - "8096:8096"
+    volumes:
+      - jellyfin_config:/config
+      - jellyfin_cache:/cache
+      - /mnt/media:/media
+    environment:
+      - JELLYFIN_PublishedServerUrl=https://jellyfin.movies.simandoff.space
+    restart: unless-stopped
+
+  # Netflix-style UI for movies/TV
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    ports:
+      - "5055:5055"
+    environment:
+      - JELLYFIN_URL=http://jellyfin:8096
+      - LOG_LEVEL=debug
+    depends_on:
+      - jellyfin
+    restart: unless-stopped
+
+  # Torrent client + media management
+  qbittorrent:
+    image: linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    ports:
+      - "6881:6881"
+      - "6881:6881/udp"
+      - "8080:8080"
+    volumes:
+      - qbittorrent_config:/config
+      - /mnt/media/torrents:/downloads
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Sofia
+      - WEBUI_PORT=8080
+    restart: unless-stopped
+
+  # Automatic TV show management
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    ports:
+      - "8989:8989"
+    volumes:
+      - sonarr_config:/config
+      - /mnt/media/tv:/tv
+      - /mnt/media/torrents:/downloads
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Sofia
+    depends_on:
+      - qbittorrent
+    restart: unless-stopped
+
+  # Automatic movie management
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    ports:
+      - "7878:7878"
+    volumes:
+      - radarr_config:/config
+      - /mnt/media/movies:/movies
+      - /mnt/media/torrents:/downloads
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Sofia
+    depends_on:
+      - qbittorrent
+    restart: unless-stopped
+
+  # Search indexer aggregator
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    ports:
+      - "9696:9696"
+    volumes:
+      - prowlarr_config:/config
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Sofia
+    restart: unless-stopped
+
+  # Subtitle management
+  bazarr:
+    image: linuxserver/bazarr:latest
+    container_name: bazarr
+    ports:
+      - "6767:6767"
+    volumes:
+      - bazarr_config:/config
+      - /mnt/media/movies:/movies
+      - /mnt/media/tv:/tv
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Sofia
+    restart: unless-stopped
+
+volumes:
+  jellyfin_config:
+  jellyfin_cache:
+  qbittorrent_config:
+  sonarr_config:
+  radarr_config:
+  prowlarr_config:
+  bazarr_config:
