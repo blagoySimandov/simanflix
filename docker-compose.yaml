@@ -25,6 +25,8 @@ services:
     depends_on:
       - jellyfin
     restart: unless-stopped
+    volumes:
+      - jellyseerr_config:/config
 
   # Torrent client + media management
   qbittorrent:
@@ -113,6 +115,7 @@ services:
 volumes:
   jellyfin_config:
   jellyfin_cache:
+  jellyseerr_config:
   qbittorrent_config:
   sonarr_config:
   radarr_config:
