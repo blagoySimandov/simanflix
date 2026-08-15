@@ -1,7 +1,7 @@
 services:
   # Main media server
   jellyfin:
-    image: jellyfin/jellyfin:10.9.11
+    image: jellyfin/jellyfin:10.11.11
     container_name: jellyfin
     ports:
       - "8096:8096"
@@ -20,7 +20,7 @@ services:
 
   # Netflix-style UI for movies/TV
   jellyseerr:
-    image: fallenbagel/jellyseerr:1.9.2
+    image: fallenbagel/jellyseerr:latest
     container_name: jellyseerr
     ports:
       - "5055:5055"
@@ -41,7 +41,7 @@ services:
 
   # Torrent client + media management
   qbittorrent:
-    image: linuxserver/qbittorrent:4.6.7
+    image: linuxserver/qbittorrent:latest
     container_name: qbittorrent
     ports:
       - "6881:6881"
@@ -65,7 +65,7 @@ services:
 
   # Automatic TV show management
   sonarr:
-    image: linuxserver/sonarr:4.0.9
+    image: linuxserver/sonarr:latest
     container_name: sonarr
     ports:
       - "8989:8989"
@@ -91,7 +91,7 @@ services:
 
   # Automatic movie management
   radarr:
-    image: linuxserver/radarr:5.9.1
+    image: linuxserver/radarr:latest
     container_name: radarr
     ports:
       - "7878:7878"
@@ -117,7 +117,7 @@ services:
 
   # Search indexer aggregator
   prowlarr:
-    image: linuxserver/prowlarr:1.21.2
+    image: linuxserver/prowlarr:latest
     container_name: prowlarr
     ports:
       - "9696:9696"
@@ -138,7 +138,7 @@ services:
 
   # Subtitle management
   bazarr:
-    image: linuxserver/bazarr:1.4.5
+    image: linuxserver/bazarr:latest
     container_name: bazarr
     ports:
       - "6767:6767"
