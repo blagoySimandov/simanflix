@@ -1,7 +1,7 @@
 services:
   # Main media server
   jellyfin:
-    image: jellyfin/jellyfin:latest
+    image: jellyfin/jellyfin:10.9.11
     container_name: jellyfin
     ports:
       - "8096:8096"
@@ -11,11 +11,16 @@ services:
       - /mnt/media:/media
     environment:
       - JELLYFIN_PublishedServerUrl=https://jellyfin.movies.simandoff.space
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8096/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   # Netflix-style UI for movies/TV
   jellyseerr:
-    image: fallenbagel/jellyseerr:latest
+    image: fallenbagel/jellyseerr:1.9.2
     container_name: jellyseerr
     ports:
       - "5055:5055"
@@ -23,14 +28,20 @@ services:
       - JELLYFIN_URL=http://jellyfin:8096
       - LOG_LEVEL=debug
     depends_on:
-      - jellyfin
+      jellyfin:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5055/api/v1/status || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
     volumes:
       - /mnt/config/jellyseerr:/app/config
 
   # Torrent client + media management
   qbittorrent:
-    image: linuxserver/qbittorrent:latest
+    image: linuxserver/qbittorrent:4.6.7
     container_name: qbittorrent
     ports:
       - "6881:6881"
@@ -38,17 +49,23 @@ services:
       - "8081:8080"
     volumes:
       - qbittorrent_config:/config
+      - ./config/qbittorrent/qBittorrent.conf:/config/qBittorrent/qBittorrent.conf
       - /mnt/media/torrents:/downloads
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Sofia
       - WEBUI_PORT=8080
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v2/app/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   # Automatic TV show management
   sonarr:
-    image: linuxserver/sonarr:latest
+    image: linuxserver/sonarr:4.0.9
     container_name: sonarr
     ports:
       - "8989:8989"
@@ -60,13 +77,21 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Sofia
+      - SONARR__AUTH__APIKEY=${SONARR_API_KEY}
+      - SONARR__AUTH__METHOD=Forms
     depends_on:
-      - qbittorrent
+      qbittorrent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8989/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   # Automatic movie management
   radarr:
-    image: linuxserver/radarr:latest
+    image: linuxserver/radarr:5.9.1
     container_name: radarr
     ports:
       - "7878:7878"
@@ -78,13 +103,21 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Sofia
+      - RADARR__AUTH__APIKEY=${RADARR_API_KEY}
+      - RADARR__AUTH__METHOD=Forms
     depends_on:
-      - qbittorrent
+      qbittorrent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7878/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   # Search indexer aggregator
   prowlarr:
-    image: linuxserver/prowlarr:latest
+    image: linuxserver/prowlarr:1.21.2
     container_name: prowlarr
     ports:
       - "9696:9696"
@@ -94,11 +127,18 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Sofia
+      - PROWLARR__AUTH__APIKEY=${PROWLARR_API_KEY}
+      - PROWLARR__AUTH__METHOD=Forms
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9696/ping || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
 
   # Subtitle management
   bazarr:
-    image: linuxserver/bazarr:latest
+    image: linuxserver/bazarr:1.4.5
     container_name: bazarr
     ports:
       - "6767:6767"
@@ -110,7 +150,38 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Europe/Sofia
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
     restart: unless-stopped
+
+  # One-shot: wires Sonarr/Radarr/Prowlarr/qBittorrent/Jellyseerr together on every deploy
+  init-config:
+    image: curlimages/curl:8.10.1
+    container_name: init-config
+    entrypoint: ["/bin/sh", "/init/wire-config.sh"]
+    volumes:
+      - ./init/wire-config.sh:/init/wire-config.sh:ro
+    environment:
+      - SONARR_API_KEY=${SONARR_API_KEY}
+      - RADARR_API_KEY=${RADARR_API_KEY}
+      - PROWLARR_API_KEY=${PROWLARR_API_KEY}
+      - JELLYFIN_ADMIN_USER=${JELLYFIN_ADMIN_USER}
+      - JELLYFIN_ADMIN_PASSWORD=${JELLYFIN_ADMIN_PASSWORD}
+    depends_on:
+      sonarr:
+        condition: service_healthy
+      radarr:
+        condition: service_healthy
+      prowlarr:
+        condition: service_healthy
+      qbittorrent:
+        condition: service_healthy
+      jellyseerr:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   jellyfin_config:
